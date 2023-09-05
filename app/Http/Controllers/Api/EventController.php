@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Http\Traits\CanLoadRelationships;
 use App\Models\Event;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -17,6 +18,7 @@ class EventController extends Controller
 
     public function __construct() {
         $this->middleware('auth:sanctum')->except(['index', 'show']);
+        $this->authorizeResource(Event::class, 'event');
     }
 
 
@@ -27,8 +29,7 @@ class EventController extends Controller
     {
 
         $query = $this->loadRelationShips(Event::query());
-
-       return EventResource::collection($query->latest()->paginate());
+        return EventResource::collection($query->latest()->paginate());
     }
 
 
@@ -45,7 +46,7 @@ class EventController extends Controller
                 "start_date"=>"required|date",
                 "end_date"=>"required|date|after:start_date",
             ]),
-            "user_id"=>1
+            "user_id"=>$request->user()->id
         ]);
 
         return new EventResource($this->loadRelationShips($event));
@@ -65,11 +66,11 @@ class EventController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Event $event)
+    public function update(Request $request, User $user, Event $event)
     {
-        if (!Gate::allows('update-event', $event)) {
-            abort(403, "You are not allowed for this action");
-        }
+        // if (!Gate::allows('update-event', $event)) {
+        //     abort(403, "You are not allowed for this action");
+        // }
 
         $event->update(
             $request->validate([
