@@ -4,44 +4,34 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
+use App\Http\Traits\CanLoadRelationships;
 use App\Models\Event;
 use Illuminate\Http\Request;
-use PhpParser\Node\Expr\Cast\Bool_;
+use Illuminate\Support\Facades\Gate;
 
 class EventController extends Controller
 {
+    use CanLoadRelationships;
+    private array $relations = ['user', 'attendees', 'attendees.user'];
+
+
+    public function __construct() {
+        $this->middleware('auth:sanctum')->except(['index', 'show']);
+    }
+
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $query = Event::query();
 
-        $relations = ['user', 'attendees', 'attendees.user'];
-
-        foreach ($relations as $relation ){
-            $query->when(
-                $this->shouldIncludeRelation($relation),
-                fn($q)=>$q->with($relation)
-            );
-
-        }
+        $query = $this->loadRelationShips(Event::query());
 
        return EventResource::collection($query->latest()->paginate());
     }
 
-    protected function shouldIncludeRelation(string $relation) : bool{
-        $include = request('include');
 
-        if(!$include){
-            return false;
-        }
-
-        $relations = array_map('trim', explode(",", $include));
-
-        return in_array($relation, $relations);
-
-    }
 
     /**
      * Store a newly created resource in storage.
@@ -58,7 +48,7 @@ class EventController extends Controller
             "user_id"=>1
         ]);
 
-        return $event;
+        return new EventResource($this->loadRelationShips($event));
     }
 
     /**
@@ -77,6 +67,10 @@ class EventController extends Controller
      */
     public function update(Request $request, Event $event)
     {
+        if (!Gate::allows('update-event', $event)) {
+            abort(403, "You are not allowed for this action");
+        }
+
         $event->update(
             $request->validate([
                 'name'=>'sometimes|string|max:255',
